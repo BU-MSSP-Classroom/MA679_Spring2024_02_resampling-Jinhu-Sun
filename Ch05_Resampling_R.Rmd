@@ -16,6 +16,7 @@ pacman::p_load(
       , RColorBrewer
       , lubridate
       , AmesHousing
+      , caTools
       )
 ```
 
@@ -64,8 +65,40 @@ ames_raw_2009=ames_raw[ames_raw$`Yr Sold`>=2008,]
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+library(boot)
+
+fit <- lm(log(SalePrice) ~ `Year Built`+`Year Remod/Add`+`Gr Liv Area`+`Full Bath`+`Half Bath`+`Bedroom AbvGr`+ `Garage Area`, data = ames_raw_2008)
+
+model_se <- summary(fit)$coefficients[, "Std. Error"]
+
+boot_fn <- function(data, indices) {
+  boot_sample <- data[indices, ]
+  model <- lm(log(SalePrice) ~ `Year Built`+`Year Remod/Add`+`Gr Liv Area`+`Full Bath`+`Half Bath`+`Bedroom AbvGr`+ `Garage Area`, data = boot_sample)
+  return(coef(model))
+}
+
+set.seed(123)
+
+boot_results <- boot(ames_raw_2008, boot_fn, R = 1000)
+
+print(model_se)
+
+bootstrap_se <- sd(boot_results$t[, 1])
+print(bootstrap_se)
+bootstrap_se <- sd(boot_results$t[, 2])
+print(bootstrap_se)
+bootstrap_se <- sd(boot_results$t[, 3])
+print(bootstrap_se)
+bootstrap_se <- sd(boot_results$t[, 4])
+print(bootstrap_se)
+bootstrap_se <- sd(boot_results$t[, 5])
+print(bootstrap_se)
+bootstrap_se <- sd(boot_results$t[, 6])
+print(bootstrap_se)
+bootstrap_se <- sd(boot_results$t[, 7])
+print(bootstrap_se)
+bootstrap_se <- sd(boot_results$t[, 8])
+print(bootstrap_se)
 ```
 
 Your answer:
@@ -82,8 +115,33 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+library(caret)
+
+set.seed(123)
+
+for(i in seq_along(ames_raw_2008)) {
+  if(is.numeric(ames_raw_2008[[i]])) {
+    ames_raw_2008[[i]][is.na(ames_raw_2008[[i]])] <- mean(ames_raw_2008[[i]], na.rm = TRUE)
+  }
+}
+
+train_control <- trainControl(method="cv", number=10)
+
+model <- train(log(SalePrice) ~ `Year Built`+`Year Remod/Add`+`Gr Liv Area`+`Full Bath`+`Half Bath`+`Bedroom AbvGr`+ `Garage Area`, data=ames_raw_2008, method="lm", trControl=train_control)
+
+print(model)
+
+set.seed(123)
+
+for(i in seq_along(ames_raw_2009)) {
+  if(is.numeric(ames_raw_2009[[i]])) {
+    ames_raw_2009[[i]][is.na(ames_raw_2009[[i]])] <- mean(ames_raw_2009[[i]], na.rm = TRUE)
+  }
+}
+
+predictions <- predict(model, newdata=ames_raw_2009)
+
+#postResample(predictions, ames_raw_2009$Sale_Price)
 ```
 
 Your answer:
@@ -170,7 +228,7 @@ Please write your answer in full sentences.
 We will now perform cross-validation on a simulated data set.
 (a) Generate a simulated data set as follows:
 
-```{r,eval=FALSE, echo =TRUE}
+```{r, echo =TRUE}
 set.seed (1)
 x <- rnorm (100)
 y <- x - 2 * x^2 + rnorm (100)
@@ -192,7 +250,7 @@ Your answer:
 ~~~
 Please write your answer in full sentences.
 
-
+$n=100$, $p=2$, $Y = X-2X^2+e$
 ~~~
 
 
@@ -202,8 +260,7 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+plot(x,y)
 ```
 
 Your answer:
@@ -211,7 +268,7 @@ Your answer:
 ~~~
 Please write your answer in full sentences.
 
-
+The relationship between x and y is not linear
 ~~~
 
 (c) Set a random seed, and then compute the LOOCV errors that result from fitting the following four models using least squares:
@@ -228,8 +285,17 @@ to create a single data set containing both $X$ and $Y$ .
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+set.seed(11)
+x = c(rnorm(100))
+y = c(x-2*x^2+rnorm(100))
+df = data.frame(x,y)
+cv.err = rep(0,4)
+
+for (i in 1:4){
+  lr.fit = glm(y~poly(x,degree=i,raw=TRUE))
+  cv.err[i] = cv.glm(df, lr.fit)$delta[1]
+}
+cv.err
 ```
 
 Your answer:
@@ -247,8 +313,17 @@ Are your results the same as what you got in (c)? Why?
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+set.seed(123)
+x = c(rnorm(100))
+y = c(x-2*x^2+rnorm(100))
+plot(x,y)
+df = data.frame(x,y)
+cv.err = rep(0,4)#
+for (i in 1:4){
+  lr.fit = glm(y~poly(x,degree=i,raw=TRUE))
+  cv.err[i] = cv.glm(df, lr.fit)$delta[1]
+}
+cv.err
 ```
 
 Your answer:
@@ -283,8 +358,9 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+summary(glm(y~poly(x,degree=1,raw=TRUE)))
+summary(glm(y~poly(x,degree=2,raw=TRUE)))
+summary(glm(y~poly(x,degree=4,raw=TRUE)))
 ```
 
 Your answer:
@@ -307,8 +383,20 @@ In Chapter 4, we used logistic regression to predict the probability of default 
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+library(ISLR)
+library(MASS)
+library(caTools)
+
+set.seed(1)
+
+require(caTools)
+df = Default
+sample_data = sample.split(df$default, SplitRatio = 0.50)
+training.set = subset(df, sample_data==TRUE) 
+test.set = subset(df, sample_data==FALSE)
+test.default = test.set$default 
+
+fit = glm(default ~ income+balance, data=training.set, family=binomial)
 ```
 
 Your answer:
@@ -324,65 +412,20 @@ Please write your answer in full sentences.
 
 i. Split the sample set into a training set and a validation set.
 
-Your code:
-
-```{r,echo=TRUE}
-#
-#
-```
-
-Your answer:
-
-~~~
-Please write your answer in full sentences.
-
-
-~~~
-
 ii. Fit a multiple logistic regression model using only the training observations.
 
-Your code:
-
-```{r,echo=TRUE}
-#
-#
-```
-
-Your answer:
-
-~~~
-Please write your answer in full sentences.
-
-
-~~~
-
-
 iii. Obtain a prediction of default status for each individual in the validation set by computing the posterior probability of default for that individual, and classifying the individual to the default category if the posterior probability is greater than 0.5.
-
-
-Your code:
-
-```{r,echo=TRUE}
-#
-#
-```
-
-Your answer:
-
-~~~
-Please write your answer in full sentences.
-
-
-~~~
-
 
 iv. Compute the validation set error, which is the fraction of the observations in the validation set that are misclassified.
 
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+fit_probs = predict(fit,test.set, type="response")
+fit_preds = rep("No", length(test.set$default)) 
+fit_preds[fit_probs>0.5] = "Yes"
+
+table(fit_preds,test.default)
 ```
 
 Your answer:
@@ -400,8 +443,18 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+sample_data = sample.split(df$default, SplitRatio = 0.50)
+training.set = subset(df, sample_data==TRUE) 
+test.set = subset(df, sample_data==FALSE)
+test.default = test.set$default 
+
+fit2 = glm(default ~ income+balance, data=training.set, family=binomial)
+
+fit2_probs = predict(fit2,test.set, type="response")
+fit2_preds = rep("No", length(test.set$default)) 
+fit2_preds[fit2_probs>0.5] = "Yes"
+
+table(fit2_preds,test.default)
 ```
 
 Your answer:
@@ -419,8 +472,14 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+fit3 = glm(default ~ income+balance+student, data=training.set, family=binomial)
+
+fit3_probs = predict(fit3,test.set, type="response")
+fit3_preds = rep("No", length(test.set$default)) 
+fit3_preds[fit3_probs>0.5] = "Yes"
+
+contrasts(Default$student)
+table(fit3_preds,test.default)
 ```
 
 Your answer:
@@ -441,8 +500,10 @@ We continue to consider the use of a logistic regression model to predict the pr
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+set.seed(111)
+
+fit = glm(default ~ income+balance, data=df, family=binomial)
+summary(fit)$coefficients[2:3,2]
 ```
 
 Your answer:
@@ -459,8 +520,15 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+boot.fn = function(data, index){
+  default = data$default[index]
+  income = data$income[index]
+  balance = data$balance[index]
+  fit = glm(default ~ income + balance, family = binomial)
+  return(summary(fit)$coefficients[2:3,2])
+}
+
+boot.fn(df,1:length(df$default))
 ```
 
 Your answer:
@@ -477,8 +545,7 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+boot(df,boot.fn,100)
 ```
 
 Your answer:
@@ -496,7 +563,7 @@ Your answer:
 
 ~~~
 Please write your answer in full sentences.
-
+Using bootstrapping reduces the standard error for coefficient estimates.
 
 ~~~
 
@@ -510,8 +577,12 @@ We will now consider the Boston housing data set, from the ISLR2 library.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+library(ISLR2)
+
+xbar = mean(Boston$medv)
+
+length = length(Boston$medv)
+sd = sqrt(sum((Boston$medv - xbar)^2)/(length-1))
 ```
 
 Your answer:
@@ -529,8 +600,8 @@ Hint: We can compute the standard error of the sample mean by dividing the sampl
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+se = sd/sqrt(length)
+se
 ```
 
 Your answer:
@@ -547,8 +618,14 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+fnboot = function(data, index){
+  X=data$medv[index]
+  mu2 = mean(X)
+  return(mu2)
+}
+
+set.seed(1)
+boot(Boston,fnboot,1000)
 ```
 
 Your answer:
@@ -565,8 +642,10 @@ Hint: You can approximate a 95% confidence interval using the formula $[\hat{\mu
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+xbar-2*se 
+xbar+2*se 
+
+t.test(Boston$medv)
 ```
 
 Your answer:
@@ -583,8 +662,7 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+median = median(Boston$medv)
 ```
 
 Your answer:
@@ -601,8 +679,13 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+fnboot2 = function(data, index){
+  X=data$medv[index]
+  Y = median(X)
+  return(Y)
+}
+
+boot(Boston,fnboot2,1000)
 ```
 
 Your answer:
@@ -620,8 +703,7 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+tenth.percentile = quantile(Boston$medv, 0.1)
 ```
 
 Your answer:
@@ -638,8 +720,13 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+fnboot3 = function(data, index){
+  X=data$medv[index]
+  Y = quantile(X, 0.1)
+  return(Y)
+}
+
+boot(Boston,fnboot3,1000)
 ```
 
 Your answer:
